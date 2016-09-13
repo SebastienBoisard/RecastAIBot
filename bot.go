@@ -1,7 +1,10 @@
 package main
 
 import (
+	"bufio"
+	"fmt"
 	"log"
+	"os"
 
 	"github.com/RecastAI/SDK-Golang/recast"
 	"github.com/spf13/viper"
@@ -22,36 +25,49 @@ func main() {
 
 	client := recast.NewClient(botToken, "en")
 
-	text := "I need to know the weather in Paris"
-	response, err := client.TextRequest(text, nil)
-	if err != nil {
-		// Handle error
-		log.Println("TextRequest error:", err)
-		return
-	}
+	reader := bufio.NewReader(os.Stdin)
 
-	intent, err := response.Intent()
-	log.Println("Intent found:", intent)
+	for {
 
-	allEntities := response.AllEntities()
-	for key, value := range allEntities {
-		log.Printf("Entity[%v]\n", key)
-		for _, entity := range value {
-			log.Printf("          .name=%s\n", entity.Name())
-			log.Printf("          .raw=%s\n", entity.Raw())
-			log.Printf("          .formated=%v\n", entity.Field("formated"))
+		fmt.Print("Enter text: ")
+		text, err := reader.ReadString('\n')
+
+		if err != nil {
+			log.Println("Error while reading input err:", err)
+			return
 		}
+
+		response, err := client.TextRequest(text, nil)
+		if err != nil {
+			// Handle error
+			log.Println("TextRequest error:", err)
+			return
+		}
+
+		intent, err := response.Intent()
+		log.Println("Intent found:", intent)
+
+		allEntities := response.AllEntities()
+		for key, value := range allEntities {
+			log.Printf("Entity[%v]\n", key)
+			for _, entity := range value {
+				log.Printf("          .name=%s\n", entity.Name())
+				log.Printf("          .raw=%s\n", entity.Raw())
+				log.Printf("          .formated=%v\n", entity.Field("formated"))
+			}
+		}
+
+		log.Println("response languages:", response.Language())
+		log.Println("response status:", response.Status())
+		log.Println("response timestamp:", response.Timestamp())
+		log.Println("response version:", response.Version())
+
+		sentence := response.Sentence()
+		log.Println("sentence.Source()=", sentence.Source())
+		log.Println("sentence.Type()=", sentence.Type())
+		log.Println("sentence.Action()=", sentence.Action())
+		log.Println("sentence.Agent()=", sentence.Agent())
+		log.Println("sentence.Polarity()=", sentence.Polarity())
+
 	}
-
-	log.Println("response languages:", response.Language())
-	log.Println("response status:", response.Status())
-	log.Println("response timestamp:", response.Timestamp())
-	log.Println("response version:", response.Version())
-
-	sentence := response.Sentence()
-	log.Println("sentence.Source()=", sentence.Source())
-	log.Println("sentence.Type()=", sentence.Type())
-	log.Println("sentence.Action()=", sentence.Action())
-	log.Println("sentence.Agent()=", sentence.Agent())
-	log.Println("sentence.Polarity()=", sentence.Polarity())
 }
