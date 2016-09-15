@@ -1,10 +1,8 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
 	"log"
-	"os"
 
 	"github.com/RecastAI/SDK-Golang/recast"
 	"github.com/spf13/viper"
@@ -21,53 +19,79 @@ func main() {
 		return
 	}
 
-	botToken := viper.GetString("token.RecastAI")
+	recastBotToken := viper.GetString("token.RecastAI")
+	slackBotToken := viper.GetString("token.Slack")
 
-	client := recast.NewClient(botToken, "en")
+	// start a websocket-based Real Time API session
+	slackBot, err := NewBot(slackBotToken)
+	if err != nil {
+		log.Fatalf("Can't connect to Slack [%s]", err)
+	}
+	fmt.Println("SlackGoBot is running...")
+	fmt.Println("SlackGoBot id is =", slackBot.id)
 
-	reader := bufio.NewReader(os.Stdin)
+	recastClient := recast.NewClient(recastBotToken, "en")
 
 	for {
 
-		fmt.Print("Enter text: ")
-		text, err := reader.ReadString('\n')
-
+		// Read each incoming message
+		msg, err := slackBot.receiveMessage()
 		if err != nil {
-			log.Println("Error while reading input err:", err)
-			return
+			log.Fatal("Error while getting message", err)
 		}
 
-		response, err := client.TextRequest(text, nil)
+		if msg.Type != "message" {
+			continue
+		}
+
+		// Test if the message was written by the bot
+		if msg.User == slackBot.id {
+			continue
+		}
+
+		// The received message is a 'message' type.
+
+		response, err := recastClient.TextRequest(msg.Text, nil)
 		if err != nil {
 			// Handle error
-			log.Println("TextRequest error:", err)
-			return
+			msg.Text = fmt.Sprintf("TextRequest error: %s", err)
+			slackBot.sendMessage(msg)
+			continue
 		}
 
-		intent, err := response.Intent()
-		log.Println("Intent found:", intent)
+		// NOTE: the Message object is copied, this is intentional
+		go func(msg Message) {
 
-		allEntities := response.AllEntities()
-		for key, value := range allEntities {
-			log.Printf("Entity[%v]\n", key)
-			for _, entity := range value {
-				log.Printf("          .name=%s\n", entity.Name())
-				log.Printf("          .raw=%s\n", entity.Raw())
-				log.Printf("          .formated=%v\n", entity.Field("formated"))
+			intent, err := response.Intent()
+			if err != nil {
+				// Handle error
+				msg.Text = fmt.Sprintf("Intent error: %s", err)
+				slackBot.sendMessage(msg)
+				return
 			}
-		}
 
-		log.Println("response languages:", response.Language())
-		log.Println("response status:", response.Status())
-		log.Println("response timestamp:", response.Timestamp())
-		log.Println("response version:", response.Version())
+			msg.Text = fmt.Sprintf("Intent found: %s", intent)
+			slackBot.sendMessage(msg)
 
-		sentence := response.Sentence()
-		log.Println("sentence.Source()=", sentence.Source())
-		log.Println("sentence.Type()=", sentence.Type())
-		log.Println("sentence.Action()=", sentence.Action())
-		log.Println("sentence.Agent()=", sentence.Agent())
-		log.Println("sentence.Polarity()=", sentence.Polarity())
+			allEntities := response.AllEntities()
+			for key, value := range allEntities {
+				for _, entity := range value {
+					msg.Text = fmt.Sprintf("Entity[%v].name=%s\nEntity[%v].raw=%s\nEntity[%v].formated=%v\n",
+						key, entity.Name(), key, entity.Raw(), key, entity.Field("formated"))
+					slackBot.sendMessage(msg)
+				}
+			}
+
+			msg.Text = fmt.Sprintf("response language: %s\nresponse status: %v\nresponse timestamp: %s\nresponse version: %s\n",
+				response.Language(), response.Status(), response.Timestamp(), response.Version())
+			slackBot.sendMessage(msg)
+
+			sentence := response.Sentence()
+
+			msg.Text = fmt.Sprintf("sentence.Source()=%s\nsentence.Type()=%s\nsentence.Action()=%s\nsentence.Agent()=%s\nsentence.Polarity()=%s\n",
+				sentence.Source(), sentence.Type(), sentence.Action(), sentence.Agent(), sentence.Polarity())
+			slackBot.sendMessage(msg)
+		}(msg)
 
 	}
 }

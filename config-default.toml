@@ -1,2 +1,3 @@
 [token]
 RecastAI = "xxxx-xxxxxxx-yyyyyyyyyyy" // Put here the token given by RecastAI
+Slack = "xxxx-xxxxxxx-yyyyyyyyyyy" // Put here the token given by Slack
