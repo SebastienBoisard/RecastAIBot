@@ -55,6 +55,7 @@ func main() {
 		if err != nil {
 			// Handle error
 			msg.Text = fmt.Sprintf("TextRequest error: %s", err)
+			fmt.Println("msg1=", msg)
 			slackBot.sendMessage(msg)
 			continue
 		}
@@ -62,35 +63,26 @@ func main() {
 		// NOTE: the Message object is copied, this is intentional
 		go func(msg Message) {
 
-			intent, err := response.Intent()
-			if err != nil {
-				// Handle error
-				msg.Text = fmt.Sprintf("Intent error: %s", err)
+			for intent := range response.Intents {
+				msg.Text = fmt.Sprintf("Intent found: %v", intent)
+				fmt.Println("msg2=", msg)
 				slackBot.sendMessage(msg)
-				return
 			}
 
-			msg.Text = fmt.Sprintf("Intent found: %s", intent)
-			slackBot.sendMessage(msg)
-
-			allEntities := response.AllEntities()
-			for key, value := range allEntities {
+			for key, value := range response.Entities {
 				for _, entity := range value {
-					msg.Text = fmt.Sprintf("Entity[%v].name=%s\nEntity[%v].raw=%s\nEntity[%v].formated=%v\n",
-						key, entity.Name(), key, entity.Raw(), key, entity.Field("formated"))
+					msg.Text = fmt.Sprintf("Entity[%v].name=%s\nEntity[%v].confidence=%f\n",
+						key, entity.Name, key, entity.Confidence)
+					fmt.Println("msg3=", msg)
 					slackBot.sendMessage(msg)
 				}
 			}
 
-			msg.Text = fmt.Sprintf("response language: %s\nresponse status: %v\nresponse timestamp: %s\nresponse version: %s\n",
-				response.Language(), response.Status(), response.Timestamp(), response.Version())
+			msg.Text = fmt.Sprintf("response UUID: %s\nresponse source: %s\nresponse act: %s\nresponse type: %s\nresponse sentiment: %s\nresponse language: %s\nresponse status: %d\nresponse timestamp: v\nresponse version: %s\n",
+				response.UUID, response.Source, response.Act, response.Type, response.Sentiment, response.Language, response.Status, response.Version)
+			fmt.Println("msg4=", msg)
 			slackBot.sendMessage(msg)
 
-			sentence := response.Sentence()
-
-			msg.Text = fmt.Sprintf("sentence.Source()=%s\nsentence.Type()=%s\nsentence.Action()=%s\nsentence.Agent()=%s\nsentence.Polarity()=%s\n",
-				sentence.Source(), sentence.Type(), sentence.Action(), sentence.Agent(), sentence.Polarity())
-			slackBot.sendMessage(msg)
 		}(msg)
 
 	}
